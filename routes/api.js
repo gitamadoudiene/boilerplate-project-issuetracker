@@ -49,34 +49,44 @@ module.exports = function (app) {
     })
     
     .put((req, res) => {
-      let project = req.params.project;
-      let body = req.body;
+  let project = req.params.project;
+  let body = req.body;
 
-      if (!body._id) {
-        return res.json({ error: 'missing _id' });
+  if (!body._id) {
+    return res.json({ error: 'missing _id' });
+  }
+  if (!issues[project]) issues[project] = [];
+  let issue = issues[project].find(i => i._id === body._id);
+  if (!issue) {
+    return res.json({ error: 'could not update', _id: body._id });
+  }
+
+  // Ne pas supprimer _id, sinon il disparait dans la réponse plus bas
+  // delete body._id;  <-- SUPPRIME cette ligne
+
+  const updateFields = Object.keys(body).filter(key => body[key] !== undefined && body[key] !== '' && key !== '_id');
+
+  if (updateFields.length === 0) {
+    return res.json({ error: 'no update field(s) sent', _id: body._id });
+  }
+
+  try {
+    updateFields.forEach(field => {
+      if (field === 'open') {
+        issue.open = body.open === 'false' ? false : Boolean(body.open);
+      } else {
+        issue[field] = body[field];
       }
-      if (!issues[project]) issues[project] = [];
-      let issue = issues[project].find(i => i._id === body._id);
-      if (!issue) {
-        return res.json({ error: 'could not update', _id: body._id });
-      }
+    });
 
-      // Si aucune propriété à mettre à jour
-      let hasUpdates = false;
-      ['issue_title', 'issue_text', 'created_by', 'assigned_to', 'status_text', 'open'].forEach(field => {
-        if (body[field] !== undefined && body[field] !== '') {
-          issue[field] = body[field];
-          hasUpdates = true;
-        }
-      });
-
-      if (!hasUpdates) {
-        return res.json({ error: 'no update field(s) sent', _id: body._id });
-      }
-
-      issue.updated_on = new Date();
-      res.json({ result: 'successfully updated', _id: body._id });
+    issue.updated_on = new Date();
+    return res.json({ result: 'successfully updated', _id: body._id });
+  } catch (err) {
+    return res.json({ error: 'could not update', _id: body._id });
+  }
     })
+
+
     
     .delete((req, res) => {
       let project = req.params.project;
