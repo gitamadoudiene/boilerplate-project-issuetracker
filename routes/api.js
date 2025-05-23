@@ -7,13 +7,12 @@ let issues = {}; // stock en mémoire pour l’exemple (clé = project)
 module.exports = function (app) {
 
   app.route('/api/issues/:project')
-  
+
     .get((req, res) => {
       let project = req.params.project;
       if (!issues[project]) issues[project] = [];
       let filtered = issues[project];
 
-      // Filtrer si des query params sont passés
       const filters = req.query;
       Object.keys(filters).forEach(key => {
         filtered = filtered.filter(issue => issue[key] == filters[key]);
@@ -21,7 +20,7 @@ module.exports = function (app) {
 
       res.json(filtered);
     })
-    
+
     .post((req, res) => {
       let project = req.params.project;
       if (!issues[project]) issues[project] = [];
@@ -47,46 +46,52 @@ module.exports = function (app) {
       issues[project].push(newIssue);
       res.json(newIssue);
     })
-    
+
     .put((req, res) => {
-  let project = req.params.project;
-  let body = req.body;
+      const project = req.params.project;
+      const {
+        _id,
+        issue_title,
+        issue_text,
+        created_by,
+        assigned_to,
+        status_text,
+        open
+      } = req.body;
 
-  if (!body._id) {
-    return res.json({ error: 'missing _id' });
-  }
-  if (!issues[project]) issues[project] = [];
-  let issue = issues[project].find(i => i._id === body._id);
-  if (!issue) {
-    return res.json({ error: 'could not update', _id: body._id });
-  }
+      if (!_id) {
+        return res.json({ error: 'missing _id' });
+      }
 
-  // On vérifie si au moins un champ à mettre à jour est présent
-  const fieldsToUpdate = ['issue_title', 'issue_text', 'created_by', 'assigned_to', 'status_text', 'open'];
-  let hasUpdates = false;
+      if (
+        issue_title === undefined &&
+        issue_text === undefined &&
+        created_by === undefined &&
+        assigned_to === undefined &&
+        status_text === undefined &&
+        open === undefined
+      ) {
+        return res.json({ error: 'no update field(s) sent', _id });
+      }
 
-  for (let field of fieldsToUpdate) {
-    // On ne compte que les champs non vides et définis
-    if (body[field] !== undefined && body[field] !== '') {
-      hasUpdates = true;
-      break;
-    }
-  }
+      if (!issues[project]) issues[project] = [];
+      const issueIndex = issues[project].findIndex(i => i._id === _id);
+      if (issueIndex === -1) {
+        return res.json({ error: 'could not update', _id });
+      }
 
-  if (!hasUpdates) {
-    return res.json({ error: 'no update field(s) sent', _id: body._id });
-  }
+      const issue = issues[project][issueIndex];
 
-  // Si on arrive ici, on applique les mises à jour
-  fieldsToUpdate.forEach(field => {
-    if (body[field] !== undefined && body[field] !== '') {
-      issue[field] = body[field];
-    }
-  });
+      if (issue_title !== undefined) issue.issue_title = issue_title;
+      if (issue_text !== undefined) issue.issue_text = issue_text;
+      if (created_by !== undefined) issue.created_by = created_by;
+      if (assigned_to !== undefined) issue.assigned_to = assigned_to;
+      if (status_text !== undefined) issue.status_text = status_text;
+      if (open !== undefined) issue.open = open;
+      issue.updated_on = new Date();
 
-  issue.updated_on = new Date();
-  return res.json({ result: 'successfully updated', _id: body._id });
-})
+      res.json({ result: 'successfully updated', _id });
+    })
 
     .delete((req, res) => {
       let project = req.params.project;
@@ -108,5 +113,4 @@ module.exports = function (app) {
 
       res.json({ result: 'successfully deleted', _id: body._id });
     });
-    
 };
